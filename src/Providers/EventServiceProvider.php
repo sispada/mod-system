@@ -4,7 +4,7 @@ namespace Module\System\Providers;
 
 use ReflectionProperty;
 use Illuminate\Support\Arr;
-use Sispada\Platform\DiscoverEvents;
+use Monoland\Platform\DiscoverEvents;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 class EventServiceProvider extends ServiceProvider
