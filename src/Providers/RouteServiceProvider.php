@@ -42,7 +42,7 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function mapWebRoutes(): void
     {
-        Route::domain('backend.' . env('APP_URL'))
+        Route::domain(env('APP_URL'))
             ->middleware('web')
             ->prefix('account')
             ->namespace('Module\System\Http\Controllers')
@@ -50,9 +50,9 @@ class RouteServiceProvider extends ServiceProvider
 
         $domain = Cache::flexible('system-domain', [60, 3600], function () {
             try {
-                return optional(DB::table('system_modules')->where('slug', 'system')->first())->domain ?: 'backend';
+                return optional(DB::table('system_modules')->where('slug', 'system')->first())->domain ?: null;
             } catch (\Exception $e) {
-                return 'backend';
+                return null;
             }
         });
 
@@ -64,7 +64,7 @@ class RouteServiceProvider extends ServiceProvider
             }
         });
 
-        Route::domain($domain . '.' . env('APP_URL'))
+        Route::domain($domain ? $domain . '.' . env('APP_URL') : env('APP_URL'))
             ->middleware('web')
             ->prefix($prefix)
             ->namespace('Module\System\Http\Controllers')
@@ -80,7 +80,7 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function mapApiRoutes(): void
     {
-        Route::domain('backend.' . env('APP_URL'))
+        Route::domain(env('APP_URL'))
             ->prefix('account/api')
             ->middleware(['api', 'auth:sanctum'])
             ->namespace('Module\System\Http\Controllers')
@@ -88,9 +88,9 @@ class RouteServiceProvider extends ServiceProvider
 
         $domain = Cache::flexible('system-domain', [60, 3600], function () {
             try {
-                return optional(DB::table('system_modules')->where('slug', 'system')->first())->domain ?: 'backend';
+                return optional(DB::table('system_modules')->where('slug', 'system')->first())->domain ?: null;
             } catch (\Exception $e) {
-                return 'backend';
+                return null;
             }
         });
 
@@ -102,7 +102,7 @@ class RouteServiceProvider extends ServiceProvider
             }
         });
 
-        Route::domain($domain . '.' . env('APP_URL'))
+        Route::domain($domain ? $domain . '.' . env('APP_URL') : env('APP_URL'))
             ->prefix($prefix . '/api')
             ->middleware(['api', 'auth:sanctum'])
             ->namespace('Module\System\Http\Controllers')
