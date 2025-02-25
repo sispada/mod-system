@@ -4,6 +4,7 @@ namespace Module\System\Traits;
 
 use ReflectionMethod;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Builder;
 use Module\System\Attributes\SearchUsingPrefix;
 use Module\System\Attributes\SearchUsingFullText;
@@ -32,10 +33,17 @@ trait Searchable
      */
     public function resolveRouteBinding($value, $field = null)
     {
+        if ($this->hasSoftDeleted()) {
+            return $this
+                ->withTrashed()
+                ->where($field ?? $this->getRouteKeyName(), $value)
+                ->first();
+        }
+
         return $this
-            ->withTrashed()
             ->where($field ?? $this->getRouteKeyName(), $value)
             ->first();
+        
     }
 
     /**

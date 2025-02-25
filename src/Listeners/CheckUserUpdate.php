@@ -2,49 +2,98 @@
 
 namespace Module\System\Listeners;
 
+use Illuminate\Events\Dispatcher;
 use Module\System\Models\SystemUser;
-use Illuminate\Queue\InteractsWithQueue;
-use Module\Profile\Events\BiodataUpdated;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Module\Foundation\Events\TrainingMemberUpdated;
+use Module\Training\Events\TrainingCommitteeUpdate;
+use Module\Foundation\Events\TrainingOfficialUpdated;
 
 class CheckUserUpdate
 {
     /**
-     * Create the event listener.
+     * handleMemberUpdate function
+     *
+     * @param TrainingMemberUpdated $event
+     * @return void
      */
-    public function __construct()
+    public function handleMemberUpdate(TrainingMemberUpdated $event): void
     {
-        //
+        /** GET CURRENT MODEL */
+        $member = $event->model;
+
+        /** CHECK EXISTS */
+        if (!$user = SystemUser::firstWhere('email', $member->slug)) {
+            /** CREATE NEW USER */
+            $user = SystemUser::createUserFromEvent($member);
+        }
+
+        /** UPDATE ABILITY */
+        SystemUser::updateAbility($user, $member);
     }
 
     /**
-     * Handle the event.
+     * handleOfficialUpdate function
+     *
+     * @param TrainingOfficialUpdated $event
+     * @return void
      */
-    public function handle(BiodataUpdated $event): void
+    public function handleOfficialUpdate(TrainingOfficialUpdated $event): void
     {
         /** GET CURRENT MODEL */
-        $biodata = $event->model;
+        $official = $event->model;
 
         /** CHECK EXISTS */
-        if (!$user = SystemUser::firstWhere('email', $biodata->nip)) {
+        if (!$user = SystemUser::firstWhere('email', $official->slug)) {
             /** CREATE NEW USER */
-            $user = SystemUser::createUserFromBiodata($biodata);
+            $user = SystemUser::createUserFromEvent($official);
         }
 
-        /**
-         * TODO:
-         * struktural eselon 1 theme = brown
-         * struktural eselon 2 theme = red
-         * struktural eselon 3 theme = blue
-         * struktural eselon 4 theme = green
-         * fungsional theme = blue-grey
-         * pelaksana theme = orange
-         */
+        /** UPDATE ABILITY */
+        SystemUser::updateAbility($user, $official);
+    }
+
+    /**
+     * handleTrainingCommitteeUpdate function
+     *
+     * @param TrainingCommitteeUpdate $event
+     * @return void
+     */
+    public function handleTrainingCommitteeUpdate(TrainingCommitteeUpdate $event): void
+    {
+        /** GET CURRENT MODEL */
+        $committee = $event->model;
+
+        /** CHECK EXISTS */
+        if (!$user = SystemUser::firstWhere('email', $committee->slug)) {
+            /** CREATE NEW USER */
+            $user = SystemUser::createUserFromEvent($committee);
+        }
 
         /** UPDATE ABILITY */
-        SystemUser::updateAbility($user);
+        SystemUser::updateAbility($user, $committee);
+    }
 
-        /** UPDATE AVATAR */
-        SystemUser::updateUserAvatar($user, $biodata->getBiodataPhoto());
+    /**
+     * subscribe function
+     *
+     * @param Dispatcher $events
+     * @return void
+     */
+    public function subscribe(Dispatcher $events): void
+    {
+        $events->listen(
+            TrainingMemberUpdated::class,
+            [CheckUserUpdate::class, 'handleMemberUpdate']
+        );
+
+        $events->listen(
+            TrainingOfficialUpdated::class,
+            [CheckUserUpdate::class, 'handleOfficialUpdate']
+        );
+
+        $events->listen(
+            TrainingCommitteeUpdate::class,
+            [CheckUserUpdate::class, 'handleTrainingCommitteeUpdate']
+        );
     }
 }

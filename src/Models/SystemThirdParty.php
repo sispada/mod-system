@@ -3,19 +3,21 @@
 namespace Module\System\Models;
 
 use Illuminate\Http\Request;
+use Module\System\Traits\HasMeta;
 use Illuminate\Support\Facades\DB;
-use Module\System\Models\SystemPage;
+use Illuminate\Support\Facades\Hash;
 use Module\System\Traits\Filterable;
 use Module\System\Traits\Searchable;
 use Module\System\Traits\HasPageSetup;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Module\System\Http\Resources\PermissionResource;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Module\System\Http\Resources\ThirdPartyResource;
 
-class SystemPermission extends Model
+class SystemThirdParty extends Model
 {
     use Filterable;
+    use HasMeta;
     use HasPageSetup;
     use Searchable;
     use SoftDeletes;
@@ -32,14 +34,14 @@ class SystemPermission extends Model
      *
      * @var string
      */
-    protected $table = 'system_permissions';
+    protected $table = 'system_thirdparties';
 
     /**
      * The roles variable
      *
      * @var array
      */
-    protected $roles = ['system-permission'];
+    protected $roles = ['system-thirdparty'];
 
     /**
      * The attributes that should be cast to native types.
@@ -57,74 +59,14 @@ class SystemPermission extends Model
      */
     protected $defaultOrder = 'name';
 
-    // view, create, show, update, delete, restore, destroy
     /**
-     * mapCombos function
+     * user function
      *
-     * @param Request $request
-     * @return array
+     * @return MorphOne
      */
-    public static function mapCombos(Request $request): array
+    public function user(): MorphOne
     {
-        return [
-            'permissions' => array_merge(array_diff(
-                ['view', 'create', 'show', 'update', 'delete', 'restore', 'destroy'],
-                SystemPage::find($request->segment(4))->permissions()->pluck('name')->toArray()
-            ))
-        ];
-    }
-
-    /**
-     * mapResource function
-     *
-     * @param Request $request
-     * @return array
-     */
-    public static function mapResource(Request $request, $model): array
-    {
-        return [
-            'id' => $model->id,
-            'name' => $model->name,
-            'slug' => $model->slug,
-
-            'subtitle' => (string) $model->updated_at,
-            'updated_at' => (string) $model->updated_at,
-        ];
-    }
-
-    /**
-     * mapResourceShow function
-     *
-     * @param Request $request
-     * @return array
-     */
-    public static function mapResourceShow(Request $request, $model): array
-    {
-        return [
-            'id' => $model->id,
-            'name' => $model->name,
-            'slug' => $model->slug
-        ];
-    }
-
-    /**
-     * page function
-     *
-     * @return BelongsTo
-     */
-    public function page(): BelongsTo
-    {
-        return $this->belongsTo(SystemPage::class, 'page_id');
-    }
-
-    /**
-     * module function
-     *
-     * @return BelongsTo
-     */
-    public function module(): BelongsTo
-    {
-        return $this->belongsTo(SystemModule::class, 'module_id');
+        return $this->morphOne(SystemUser::class, 'userable');
     }
 
     /**
@@ -133,7 +75,7 @@ class SystemPermission extends Model
      * @param Request $request
      * @return void
      */
-    public static function storeRecord(Request $request, SystemPage $parent)
+    public static function storeRecord(Request $request)
     {
         $model = new static();
 
@@ -141,14 +83,21 @@ class SystemPermission extends Model
 
         try {
             $model->name = $request->name;
-            $model->slug = $request->name . '-' . $parent->slug;
-            $model->module_id = $parent->module_id;
+            $model->role_id = 4;
+            $model->save();
 
-            $parent->permissions()->save($model);
+            $user = new SystemUser();
+            $user->name = $model->name;
+            $user->email = $user->makeRandomString(10);
+            $user->password = Hash::make($user->makeRandomString(40));
+            $user->gender = 'oauth';
+            $user->secured = true;
+
+            $model->user()->save($user);
 
             DB::connection($model->connection)->commit();
 
-            return new PermissionResource($model);
+            return new ThirdPartyResource($model);
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
 
@@ -168,26 +117,7 @@ class SystemPermission extends Model
      */
     public static function updateRecord(Request $request, $model)
     {
-        $parent = $model->page;
-
-        DB::connection($model->connection)->beginTransaction();
-
-        try {
-            $model->name = $request->name;
-            $model->slug = $request->name . '-' . $parent->slug;
-            $model->save();
-
-            DB::connection($model->connection)->commit();
-
-            return new PermissionResource($model);
-        } catch (\Exception $e) {
-            DB::connection($model->connection)->rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        // 
     }
 
     /**
@@ -201,11 +131,12 @@ class SystemPermission extends Model
         DB::connection($model->connection)->beginTransaction();
 
         try {
-            $model->delete();
+            $model->user->forceDelete();
+            $model->forceDelete();
 
             DB::connection($model->connection)->commit();
 
-            return response()->json(['success' => true]);
+            return new ThirdPartyResource($model);
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
 
@@ -231,7 +162,7 @@ class SystemPermission extends Model
 
             DB::connection($model->connection)->commit();
 
-            return response()->json(['success' => true]);
+            return new ThirdPartyResource($model);
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
 
@@ -257,7 +188,7 @@ class SystemPermission extends Model
 
             DB::connection($model->connection)->commit();
 
-            return response()->json(['success' => true]);
+            return new ThirdPartyResource($model);
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
 

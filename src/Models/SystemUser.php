@@ -4,6 +4,9 @@ namespace Module\System\Models;
 
 use Illuminate\Http\Request;
 use Laravel\Sanctum\HasApiTokens;
+use Module\System\Traits\CanLike;
+use Module\System\Traits\CanRate;
+use Module\System\Traits\CanVote;
 use Module\System\Traits\HasMeta;
 use Illuminate\Support\Facades\DB;
 use Module\System\Traits\Auditable;
@@ -15,6 +18,7 @@ use Illuminate\Support\Facades\Cache;
 use Module\System\Traits\Impersonate;
 use Module\System\Traits\HasPageSetup;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class SystemUser extends Authenticatable
 {
     use Auditable;
+    use CanLike;
+    use CanRate;
+    use CanVote;
     use Filterable;
     use HasApiTokens;
     use HasMeta;
@@ -223,6 +230,26 @@ class SystemUser extends Authenticatable
         });
 
         return $pages;
+    }
+
+    /**
+     * makeRandomString function
+     *
+     * @param [type] $length
+     * @return void
+     */
+    public function makeRandomString($length)
+    {
+        $alphabet       = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+        $pass           = array();
+        $alphaLength    = strlen($alphabet) - 1;
+
+        for ($i = 0; $i < $length; $i++) {
+            $n = rand(0, $alphaLength);
+            $pass[] = $alphabet[$n];
+        }
+
+        return implode($pass);
     }
 
     /**
@@ -472,24 +499,20 @@ class SystemUser extends Authenticatable
     }
 
     /**
-     * createUserFromBiodata function
+     * createUserFromEvent function
      *
-     * @param Model $biodata
+     * @param Model $model
      * @return void
      */
-    public static function createUserFromBiodata(Model $biodata)
+    public static function createUserFromEvent(Model $source)
     {
-        if ($biodata->user) {
-            return $biodata->user;
-        }
-
         try {
             $model = new static;
-            $model->name = $biodata->name;
-            $model->email = $biodata->id;
-            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'BantenMantap'));
+            $model->name = $source->name;
+            $model->email = $source->slug;
+            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiruhayMantab'));
 
-            $biodata->user()->save($model);
+            $source->user()->save($model);
 
             return $model;
         } catch (\Exception $e) {
@@ -503,19 +526,57 @@ class SystemUser extends Authenticatable
      * @param [type] $model
      * @return void
      */
-    public static function updateAbility($model)
+    public static function updateAbility($model, $source)
     {
         if (!$model) {
             return;
         }
 
-        if ($role = SystemRole::with(['abilities'])->firstWhere('slug', 'pegawai')) {
+        $rolemode = null;
+
+        if ($source->position_id) {
+            switch ($source->position_id) {
+                case 19:
+                    # KETUA | chairman
+                    $rolemode = 'chairman';
+                    break;
+
+                default:
+                    # member
+                    $rolemode = 'member';
+                    break;
+            }
+        }
+
+        if ($source->type) {
+            switch ($source->type) {
+                case 'CHAIRMAN':
+                    # KETUA | chairman
+                    $rolemode = 'committee-chairman';
+                    break;
+
+                case 'SPEAKER':
+                    # KETUA | chairman
+                    $rolemode = 'speaker';
+                    break;
+
+                default:
+                    # member
+                    $rolemode = 'committee-member';
+                    break;
+            }
+        }
+
+
+        if ($role = SystemRole::with(['abilities'])->firstWhere('slug', $rolemode)) {
             foreach ($role->abilities as $ability) {
                 if (!$model->hasLicenseAs($ability->name)) {
                     $model->addLicense($ability->name);
                 }
             }
         }
+
+        Artisan::call('cache:clear');
     }
 
     /**

@@ -1,6 +1,6 @@
 {
-	"name": "sispada/mod-system",
-	"description": "The sispada module module",
+	"name": "siruhay/mod-system",
+	"description": "The siruhay module module",
 	"authors": [
 		{
 			"name": "monoland",
@@ -14,7 +14,8 @@
 		"laravel/horizon": "^5.26",
 		"league/flysystem-aws-s3-v3": "^3.28",
 		"maatwebsite/excel": "^3.1",
-		"guzzlehttp/guzzle": "^7.2"
+		"guzzlehttp/guzzle": "^7.2",
+		"monoland/starterkit": "@dev"
 	},
 	"autoload": {
 		"files": [
