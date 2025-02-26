@@ -525,11 +525,13 @@ class SystemUser extends Authenticatable
 
             $licenseName = 'procurement-' . strtolower($source->role);
 
-            if (!$model->hasLicenseAs($licenseName)) {
-                $model->addLicense($licenseName);
+            if (SystemAbility::firstWhere('slug', $licenseName)) {
+                if (!$model->hasLicenseAs($licenseName)) {
+                    $model->addLicense($licenseName);
+                }
+    
+                SystemGrantPermission::dispatch($model->id);
             }
-
-            SystemGrantPermission::dispatch($model->id);
 
             return true;
         } catch (\Exception $e) {
