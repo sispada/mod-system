@@ -509,6 +509,9 @@ class SystemUser extends Authenticatable
     {
         if (!$model = static::firstWhere('email', $source->slug)) {
             $model = new static;
+            $model->userable_type = get_class($source);
+            $model->userable_id = $source->id;
+            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));
         }
         
         DB::connection($model->connection)->beginTransaction();
@@ -516,9 +519,6 @@ class SystemUser extends Authenticatable
         try {
             $model->name = $source->name;
             $model->email = $source->slug;
-            $model->userable_type = get_class($source);
-            $model->userable_id = $source->id;
-            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));
             $model->save();
 
             DB::connection($model->connection)->commit();
