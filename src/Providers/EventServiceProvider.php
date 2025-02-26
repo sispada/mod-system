@@ -40,8 +40,6 @@ class EventServiceProvider extends ServiceProvider
         $events     = $this->discoverEvents();
         $provider   = Arr::first($this->app->getProviders(ServiceProvider::class));
 
-        dd($events);
-
         if (!$provider || empty($events)) {
             return;
         }
