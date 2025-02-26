@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Module\System\Jobs\SystemGrantPermission;
 
 class SystemUser extends Authenticatable
 {
@@ -499,6 +500,46 @@ class SystemUser extends Authenticatable
     }
 
     /**
+     * Undocumented function
+     *
+     * @param Model $source
+     * @return mixed
+     */
+    public static function handleUserFromProcurement(Model $source): mixed
+    {
+        if (!$model = static::firstWhere('email', $source->slug)) {
+            $model = new static;
+        }
+        
+        DB::connection($model->connection)->beginTransaction();
+        
+        try {
+            $model->name = $source->name;
+            $model->email = $source->slug;
+            $model->userable_type = get_class($source);
+            $model->userable_id = $source->id;
+            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));
+            $model->save();
+
+            DB::connection($model->connection)->commit();
+
+            $licenseName = 'procurement-' . strtolower($source->role);
+
+            if (!$model->hasLicenseAs($licenseName)) {
+                $model->addLicense($licenseName);
+            }
+
+            SystemGrantPermission::dispatch($model->id);
+
+            return true;
+        } catch (\Exception $e) {
+            DB::connection($model->connection)->rollBack();
+
+            throw $e;
+        }
+    }
+
+    /**
      * createUserFromEvent function
      *
      * @param Model $model
@@ -510,7 +551,7 @@ class SystemUser extends Authenticatable
             $model = new static;
             $model->name = $source->name;
             $model->email = $source->slug;
-            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiruhayMantab'));
+            $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));
 
             $source->user()->save($model);
 
