@@ -506,8 +506,10 @@ class SystemUser extends Authenticatable
      */
     public static function handleUserFromProcurement(Model $source): mixed
     {
-        if (!$source->slug) {
-            throw new \Exception('Identification not found.', 500);
+        $licenseName = 'procurement-' . strtolower($source->role);
+
+        if (!$source->slug || !SystemAbility::firstWhere('name', $licenseName)) {
+            return false;
         }
         
         if (!$model = static::firstWhere('email', $source->slug)) {
@@ -526,16 +528,12 @@ class SystemUser extends Authenticatable
 
             DB::connection($model->connection)->commit();
 
-            $licenseName = 'procurement-' . strtolower($source->role);
-
-            if (SystemAbility::firstWhere('name', $licenseName)) {
-                if (!$model->hasLicenseAs($licenseName)) {
-                    $model->addLicense($licenseName);
-                }
-    
-                SystemGrantPermission::dispatch($model->id);
+            if (!$model->hasLicenseAs($licenseName)) {
+                $model->addLicense($licenseName);
             }
 
+            SystemGrantPermission::dispatch($model->id);
+            
             return true;
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
