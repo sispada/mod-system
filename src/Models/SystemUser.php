@@ -9,6 +9,7 @@ use Module\System\Traits\CanRate;
 use Module\System\Traits\CanVote;
 use Module\System\Traits\HasMeta;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Module\System\Traits\Auditable;
 use Illuminate\Support\Facades\Hash;
 use Module\System\Traits\Filterable;
@@ -21,11 +22,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Module\System\Jobs\SystemGrantPermission;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Module\System\Jobs\SystemGrantPermission;
 
 class SystemUser extends Authenticatable
 {
@@ -278,49 +279,47 @@ class SystemUser extends Authenticatable
      */
     public function getModules(): array
     {
-        return Cache::flexible($this->id . '-modules', [60, 3600], function () {
-            $modules = with($this->licenses()->with([
-                'ability',
-                'ability.pages',
-                'ability.pages.page',
-                'ability.pages.page.parent',
-                'module'
-            ])->get())->reduce(function ($carry, $license) {
-                $module = optional($license)->module;
+        $modules = with($this->licenses()->with([
+            'ability',
+            'ability.pages',
+            'ability.pages.page',
+            'ability.pages.page.parent',
+            'module'
+        ])->get())->reduce(function ($carry, $license) {
+            $module = optional($license)->module;
 
-                if ((optional($module)->enabled && optional($module)->published) || (optional($module)->enabled && !optional($module)->published && $this->debuger)) {
-                    array_push($carry[$module->type], [
-                        'name' => $module->name,
-                        'slug' => $module->slug,
-                        'icon' => $module->icon,
-                        'color' => $module->color,
-                        'highlight' => $module->highlight,
-                        'domain' => $module->domain,
-                        'prefix' => $module->prefix,
-                        'desktop' => (bool) $module->desktop,
-                        'mobile' => (bool) $module->mobile,
-                        'order' => $module->_lft,
-                        'pages' => $this->getLicensePages($license->ability)
-                    ]);
-                }
+            if ((optional($module)->enabled && optional($module)->published) || (optional($module)->enabled && !optional($module)->published && $this->debuger)) {
+                array_push($carry[$module->type], [
+                    'name' => $module->name,
+                    'slug' => $module->slug,
+                    'icon' => $module->icon,
+                    'color' => $module->color,
+                    'highlight' => $module->highlight,
+                    'domain' => $module->domain,
+                    'prefix' => $module->prefix,
+                    'desktop' => (bool) $module->desktop,
+                    'mobile' => (bool) $module->mobile,
+                    'order' => $module->_lft,
+                    'pages' => $this->getLicensePages($license->ability)
+                ]);
+            }
 
-                return $carry;
-            }, [
-                'account' => [],
-                'administrator' => [],
-                'personal' => [],
-            ]);
+            return $carry;
+        }, [
+            'account' => [],
+            'administrator' => [],
+            'personal' => [],
+        ]);
 
-            usort($modules['administrator'], function ($a, $b) {
-                return $a['order'] - $b['order'];
-            });
-
-            usort($modules['personal'], function ($a, $b) {
-                return $a['order'] - $b['order'];
-            });
-
-            return $modules;
+        usort($modules['administrator'], function ($a, $b) {
+            return $a['order'] - $b['order'];
         });
+
+        usort($modules['personal'], function ($a, $b) {
+            return $a['order'] - $b['order'];
+        });
+
+        return $modules;
     }
 
     /**
@@ -507,6 +506,10 @@ class SystemUser extends Authenticatable
      */
     public static function handleUserFromProcurement(Model $source): mixed
     {
+        if (!$source->slug) {
+            throw new \Exception('Identification not found.', 500);
+        }
+        
         if (!$model = static::firstWhere('email', $source->slug)) {
             $model = new static;
             $model->userable_type = get_class($source);
@@ -525,7 +528,7 @@ class SystemUser extends Authenticatable
 
             $licenseName = 'procurement-' . strtolower($source->role);
 
-            if (SystemAbility::firstWhere('slug', $licenseName)) {
+            if (SystemAbility::firstWhere('name', $licenseName)) {
                 if (!$model->hasLicenseAs($licenseName)) {
                     $model->addLicense($licenseName);
                 }
