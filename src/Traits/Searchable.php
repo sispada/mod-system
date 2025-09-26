@@ -43,7 +43,7 @@ trait Searchable
         return $this
             ->where($field ?? $this->getRouteKeyName(), $value)
             ->first();
-        
+
     }
 
     /**
@@ -64,10 +64,16 @@ trait Searchable
      * @param Builder $query
      * @return void
      */
-    public function scopeForCombo(Builder $query)
+    public function scopeForCombo(Builder $query, ...$select)
     {
+        if (! $select) {
+            return $query
+                ->select('name AS title', 'id AS value')
+                ->get();
+        }
+
         return $query
-            ->select('name AS title', 'id AS value')
+            ->select($select)
             ->get();
     }
 

@@ -18,8 +18,9 @@ class CreateOrUpdateUser
     {
         /** GET CURRENT MODEL */
         $source = $event->model;
+        $license = $event->license;
 
-        SystemUser::handleUserFromProcurement($source);
+        SystemUser::handleUserFromProcurement($source, $license);
     }
 
     /**

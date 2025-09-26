@@ -502,15 +502,9 @@ class SystemUser extends Authenticatable
      * @param Model $source
      * @return mixed
      */
-    public static function handleUserFromProcurement(Model $source): mixed
+    public static function handleUserFromProcurement(Model $source, $license): mixed
     {
-        $licenseName = 'procurement-' . strtolower($source->role);
-
-        Log::info($source->name, [
-            'role' => $licenseName
-        ]);
-
-        if (!$source->slug || !SystemAbility::firstWhere('name', $licenseName)) {
+        if (!$source->slug || !SystemAbility::firstWhere('name', $license)) {
             return false;
         }
 
@@ -530,8 +524,8 @@ class SystemUser extends Authenticatable
 
             DB::connection($model->connection)->commit();
 
-            if (!$model->hasLicenseAs($licenseName)) {
-                $model->addLicense($licenseName);
+            if (!$model->hasLicenseAs($license)) {
+                $model->addLicense($license);
             }
 
             SystemGrantPermission::dispatch($model->id);
