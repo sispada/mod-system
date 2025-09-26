@@ -136,11 +136,9 @@ class SystemUser extends Authenticatable
 
                 'modules' => $modules,
             ],
-
             $request->mobile ? [
                 'token' => $model->generateToken()
             ] : [],
-
             $request->session()->has('impersonate_source_id') ? [
                 'impersonated' => true
             ] : []
@@ -508,19 +506,23 @@ class SystemUser extends Authenticatable
     {
         $licenseName = 'procurement-' . strtolower($source->role);
 
+        Log::info($source->name, [
+            'role' => $licenseName
+        ]);
+
         if (!$source->slug || !SystemAbility::firstWhere('name', $licenseName)) {
             return false;
         }
-        
+
         if (!$model = static::firstWhere('email', $source->slug)) {
-            $model = new static;
+            $model = new static();
             $model->userable_type = get_class($source);
             $model->userable_id = $source->id;
             $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));
         }
-        
+
         DB::connection($model->connection)->beginTransaction();
-        
+
         try {
             $model->name = $source->name;
             $model->email = $source->slug;
@@ -533,7 +535,7 @@ class SystemUser extends Authenticatable
             }
 
             SystemGrantPermission::dispatch($model->id);
-            
+
             return true;
         } catch (\Exception $e) {
             DB::connection($model->connection)->rollBack();
@@ -551,7 +553,7 @@ class SystemUser extends Authenticatable
     public static function createUserFromEvent(Model $source)
     {
         try {
-            $model = new static;
+            $model = new static();
             $model->name = $source->name;
             $model->email = $source->slug;
             $model->password = Hash::make(env('DEFAULT_PASSWORD', 'SiASEPGEMILANG'));

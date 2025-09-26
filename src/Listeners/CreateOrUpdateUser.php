@@ -4,8 +4,6 @@ namespace Module\System\Listeners;
 
 use Illuminate\Events\Dispatcher;
 use Module\System\Models\SystemUser;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Module\Procurement\Events\ProcurementBiodataCreated;
 
 class CreateOrUpdateUser
